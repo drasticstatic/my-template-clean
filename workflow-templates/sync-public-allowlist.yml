@@ -9,7 +9,6 @@ name: 🌐 Sync Public Preview (Allowlist Model)
 # - divorce-custody-assistant
 # - anthropas-argus-alfred
 # - trading-bot_arbitrage_DAPPUv3_hardhat_UNI-CAKE
-# - gratitude-token-project_astro (added 2026-09-01, syncs to gratitude-token-project_astro-public)
 #
 # Example repos using DENYLIST logic (sync-public-excludelist.yml):
 # - trading-assistant
