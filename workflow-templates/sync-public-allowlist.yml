@@ -1,0 +1,147 @@
+name: 🌐 Sync Public Preview (Allowlist Model)
+
+# ALLOWLIST MODEL — strict, everything private by default.
+# Only paths named in public_allowlist are synced to the public repo.
+# Any new root-level path not in either list will fail CI until classified.
+# Use this model when most of your repo is private.
+#
+# Example repos using ALLOWLIST logic:
+# - divorce-custody-assistant
+# - anthropas-argus-alfred
+# - trading-bot_arbitrage_DAPPUv3_hardhat_UNI-CAKE
+# - gratitude-token-project_astro (added 2026-09-01, syncs to gratitude-token-project_astro-public)
+#
+# Example repos using DENYLIST logic (sync-public-excludelist.yml):
+# - trading-assistant
+# - pir-devine-news
+# - wilson-lawn-ai-assist
+# - dpnelson
+#
+# .nojekyll: Store in my-template repo until needed. Only add when Jekyll processing
+# interferes with content (files with underscores, certain directory names, etc.).
+# React/Vite sites don't need it. Add on as-needed basis.
+#
+# See also: sync-public-excludelist.yml for the inverse (open) model.
+#
+# ── GOTCHAS (allowlist / validate-step model) ─────────────────────────────────
+# 1. VALIDATE TRIPWIRE: the "Validate root path classification" step FAILS the
+#    build if ANY root-level path is on neither public_allowlist nor
+#    private_allowlist. So when you add a new root file/dir, classify it in the
+#    matching list IN THE SAME COMMIT — or the next push's sync breaks. (This is
+#    exactly what stalled anthropas-argus-alfred on 2026-07-03: `memory/` +
+#    `index copy 2.html` were unclassified.) Reflex: new root entry → one-line
+#    allowlist addition in the same commit.
+# 2. EMPTY-COMMIT PRUNING: git filter-repo drops commits that become empty after
+#    filter-repo strips their private paths. So a commit touching ONLY private
+#    paths will NOT appear on the public HEAD — and that's correct, not a
+#    failure. "Success" = sync green + public HEAD reflects the latest
+#    PUBLIC-touching commit. (For a compliance/audit narrative this is desirable:
+#    only genuine public content surfaces on the record.)
+# 3. PAT `workflow` SCOPE: the classic `PUBLIC_REPO_TOKEN` must have `workflow`
+#    scope (not just `repo`) IF this sync injects/updates a `.github/workflows/`
+#    file in the public repo — otherwise push 403s with "refusing to allow a PAT
+#    to create or update workflow files without workflow scope". Adding
+#    `workflow` later = edit the existing token at github.com/settings/tokens;
+#    the token value does NOT change, so no need to re-set the secret. See
+#    ~/code/drasticstatic/how-to-setup-GITEXPORTER.md (Step 1) + PAT table.
+#    See also: ~/code/anthropas-argus-alfred/REPO-RESURRECTION-PLAYBOOK.md.
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Private Repo (Full History)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install git-filter-repo
+        run: pip install git-filter-repo
+
+      - name: Validate root path classification
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # ── ADD YOUR PUBLIC FILES/DIRS HERE ──────────────────────────────
+          public_allowlist=(
+            "README.md"
+            "index.html"
+            "LICENSE"
+            "CONTRIBUTING.md"
+            "SECURITY.md"
+            # "docs"
+            # "examples"
+          )
+
+          # ── ADD YOUR PRIVATE FILES/DIRS HERE ─────────────────────────────
+          private_allowlist=(
+            ".augmentignore"
+            ".claude"
+            ".github"
+            ".gitignore"
+            "CLAUDE.md"
+            "AGENT-SYNC"
+            "gitexporter.config.json"
+            "specs"
+            # Add more private dirs/files here
+          )
+
+          is_listed() {
+            local entry="$1"
+            shift
+            for item in "$@"; do
+              if [[ "$item" == "$entry" ]]; then return 0; fi
+            done
+            return 1
+          }
+
+          unclassified=()
+          while IFS= read -r entry; do
+            if [[ "$entry" == ".git" ]]; then continue; fi
+            if is_listed "$entry" "${public_allowlist[@]}"; then continue; fi
+            if is_listed "$entry" "${private_allowlist[@]}"; then continue; fi
+            unclassified+=("$entry")
+          done < <(find . -maxdepth 1 -mindepth 1 | sed 's|^\./||' | sort)
+
+          if ((${#unclassified[@]} > 0)); then
+            echo "Unclassified root paths — add to public_allowlist or private_allowlist:"
+            printf ' - %s\n' "${unclassified[@]}"
+            exit 1
+          fi
+
+      - name: Filter out private content
+        run: |
+          # ── LIST EVERY PRIVATE PATH TO STRIP ─────────────────────────────
+          git filter-repo \
+            --path "CLAUDE.md" \
+            --path ".augmentignore" \
+            --path ".gitignore" \
+            --path ".github/" \
+            --path "AGENT-SYNC/" \
+            --path "specs/" \
+            --path "gitexporter.config.json" \
+            --invert-paths \
+            --filename-callback 'return None if filename is None or (filename.startswith(b".claude/") and not filename.startswith(b".claude/skills/")) else filename' \
+            --force
+
+      - name: Configure Git Identity
+        run: |
+          git config user.name "Public Mirror Bot"
+          git config user.email "actions@github.com"
+
+      - name: Push to Public Repo
+        env:
+          TOKEN: ${{ secrets.PUBLIC_REPO_TOKEN }}
+        run: |
+          # ── REPLACE with your public repo: OWNER/REPO ─────────────────────
+          git remote add origin https://x-access-token:${TOKEN}@github.com/YOUR_USERNAME/YOUR_PUBLIC_REPO.git
+          git push origin main --force

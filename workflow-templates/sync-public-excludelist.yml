@@ -1,0 +1,100 @@
+name: 🌐 Sync Public Preview (Exclude List Model)
+
+# EXCLUDE LIST MODEL — open, everything public by default.
+# All paths are synced EXCEPT those listed in the filter-repo step.
+# Use this model when most of your repo is public and you have
+# a small set of private files/dirs to strip.
+#
+# Example repos using DENYLIST logic (this template):
+# - trading-assistant
+# - pir-devine-news
+# - wilson-lawn-ai-assist
+# - dpnelson
+#
+# Example repos using ALLOWLIST logic (sync-public-allowlist.yml):
+# - divorce-custody-assistant
+# - anthropas-argus-alfred
+# - trading-bot_arbitrage_DAPPUv3_hardhat_UNI-CAKE
+#
+# .nojekyll: Store in my-template repo until needed. Only add when Jekyll processing
+# interferes with content (files with underscores, certain directory names, etc.).
+# React/Vite sites don't need it. Add on as-needed basis.
+#
+# See also: sync-public-allowlist.yml for the strict (closed) model.
+#
+# ── GOTCHAS (excludelist / denylist model) ─────────────────────────────────────
+# 1. SILENT LEAK RISK (no tripwire here): there is NO validate step in this
+#    model — everything is public unless you --path it into the strip list. So a
+#    NEW private root file/dir you add will LEAK to the public repo until you add
+#    it to the filter-repo --path list. Audit the root tree on every new entry.
+#    (The allowlist model fails-safe by blocking; this model fails-open by
+#    leaking. Mirror inverse.) Real-world: trading-assistant strips strategies/,
+#    taxes/, tradingview/, "MCP Servers/", logs/ — anything new of comparable
+#    sensitivity must be added too.
+# 2. EMPTY-COMMIT PRUNING: git filter-repo drops commits that become empty after
+#    --invert-paths strips their private paths. So a commit touching ONLY private
+#    paths will NOT appear on the public HEAD — correct, not a failure. "Success"
+#    = sync green + public HEAD reflects the latest PUBLIC-touching commit.
+# 3. PAT `workflow` SCOPE: classic `PUBLIC_REPO_TOKEN` must have `workflow` scope
+#    (not just `repo`) IF this sync injects/updates a `.github/workflows/` file in
+#    the public repo — otherwise push 403s ("refusing to allow a PAT to create
+#    or update workflow files without workflow scope"). Adding `workflow` later =
+#    edit the existing token at github.com/settings/tokens; value unchanged, no
+#    need to re-set the secret. See ~/code/drasticstatic/how-to-setup-GITEXPORTER.md
+#    (Step 1) + PAT table. See also: ~/code/anthropas-argus-alfred/REPO-RESURRECTION-PLAYBOOK.md.
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Private Repo (Full History)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install git-filter-repo
+        run: pip install git-filter-repo
+
+      - name: Strip private content
+        run: |
+          # ── LIST EVERY PRIVATE PATH TO STRIP ─────────────────────────────
+          # Each --path names something to REMOVE (used with --invert-paths).
+          # Add more --path lines for any additional private files/dirs.
+          git filter-repo \
+            --path "CLAUDE.md" \
+            --path "AGENTS.md" \
+            --path "AGENTS.override.md" \
+            --path ".augmentignore" \
+            --path ".gitignore" \
+            --path ".graphifyignore" \
+            --path ".github/" \
+            --path "AGENT-SYNC/" \
+            --path "specs/" \
+            --path "gitexporter.config.json" \
+            --path "logs/" \
+            --path "strategies/" \
+            --path "graphify-out/" \
+            --invert-paths \
+            --filename-callback 'return None if filename is None or (filename.startswith(b".claude/") and not filename.startswith(b".claude/skills/")) else filename' \
+            --force
+
+      - name: Configure Git Identity
+        run: |
+          git config user.name "Public Mirror Bot"
+          git config user.email "actions@github.com"
+
+      - name: Push to Public Repo
+        env:
+          TOKEN: ${{ secrets.PUBLIC_REPO_TOKEN }}
+        run: |
+          # ── REPLACE with your public repo: OWNER/REPO ─────────────────────
+          git remote add origin https://x-access-token:${TOKEN}@github.com/YOUR_USERNAME/YOUR_PUBLIC_REPO.git
+          git push origin main --force
