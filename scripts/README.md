@@ -202,3 +202,48 @@ rejection. `--autostash` stashes uncommitted changes, rebases, and reapplies the
 safe even with a dirty working tree.
 
 See `AGENTS.md` § *Start of session* for the full rule.
+
+### `sync-local.sh` — every clone on this machine at once
+
+VS Code and every helper read local files, so when GitHub has moved on (another helper pushed, the PDF bot
+committed, a Promote was merged) a stale clone shows the old page. This brings them all up to date:
+
+```sh
+sh scripts/sync-local.sh                 # fetch, then pull --rebase --autostash each clone that is behind
+sh scripts/sync-local.sh --dry-run       # fetch and report only
+sh scripts/sync-local.sh --no-fetch      # report from local knowledge, no network
+sh scripts/sync-local.sh --quiet ~/code  # one root; print only what is behind, ahead, dirty or in trouble
+```
+
+It looks up to three folders deep under `~/code`, `~/dappu` and `~/theholyearthfoundation` (or the roots you give),
+skips `node_modules`, and reports each clone's branch, ahead/behind and local changes. A clone that would conflict is
+aborted at once and left exactly as it was. It **never** pushes, clones, switches branches or forces anything; it
+skips detached clones, clones without an upstream, and clones already mid-rebase. Public lanes are never cloned by
+it; one already cloned is pulled like any other (it only reads), or left out with `--skip-lanes`.
+
+---
+
+## `scan-public-lane.sh` — the public-lane tripwire (master copy)
+
+```sh
+sh scripts/scan-public-lane.sh [--strip N] <directory-about-to-be-published> [PUBLIC-ALLOWLIST-ATTESTED.txt]
+sh scripts/scan-public-lane.selftest.sh     # needs pdftotext: brew install poppler
+```
+
+**A public lane never publishes a file a machine or a person has not read.** The scanner reads every file under the
+directory: text directly, PDFs through `pdftotext`, `.docx`/`.xlsx`/`.pptx` through their XML. It refuses (exit 1,
+naming each file) a credential or agent-note pointer anywhere; a sensitive shape (identity-number shapes, tax and
+birth-date labels, street addresses, labelled account numbers over four digits, the fleet's personal-matter words);
+a PDF with no words or with wordless pages; a picture outside `assets/` or `icons/`; any other binary; and, by path,
+`entity/ tax/ filings/ counsel/`. A person who opened a file can clear the attestable cases with one line in
+`PUBLIC-ALLOWLIST-ATTESTED.txt` (`path | officer | YYYY-MM-DD | opened and read`, optionally `| sha256:<hex>`); the
+credential, legal-lane and never-travels refusals cannot be attested away. Matched text is never printed.
+
+It keeps every pattern of the fleet's two `sync-allowlist.sh` families (THEF `stage|apply`, Psanctuary `--check`),
+unioned. The self-test builds its fixtures at run time (hand-assembled PDFs, office zips, a PNG; no fixture is
+committed) and checks that `sop-template/repo/scripts/` holds byte-identical copies; CI runs it in
+`.github/workflows/tripwire-selftest.yml`. Callers: `sop-template/repo/scripts/sync-allowlist.sh` (when
+`TRIPWIRE_PUBLIC=1`) and `workflow-templates/sync-public-allowlist.yml` (HEAD and every historical version, since
+that model publishes history), `workflow-templates/sync-public-excludelist.yml` and
+`workflow-templates/publish-masked-public-copy.yml`. Copy it, do not fork it. Every copy in the fleet, with the commit
+that added it and what a rehearsal found: [`sop-template/TRIPWIRE-COPIES.md`](../sop-template/TRIPWIRE-COPIES.md).
