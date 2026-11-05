@@ -228,11 +228,30 @@ sh scripts/sync-local.sh --quiet ~/code  # one root; print only what is behind, 
 ```
 
 It looks up to three folders deep under `~/code`, `~/dappu` and each organisation's folder, `~/theholyearthfoundation`,
-`~/psychedelicsinrecovery`, `~/Octagon-Religious-Research-Group-ORG`, `~/psanctuary`, `~/psanctuarychurch` and `~/taylordwraps-org` (or the roots you give),
+`~/psychedelicsinrecovery`, `~/Octagon-Religious-Research-Group-ORG`, `~/psanctuary`, `~/psanctuarychurch`, `~/taylordwraps-org`
+and `~/WILSONSLAWNMAINTENANCE` (or the roots you give),
 skips `node_modules`, and reports each clone's branch, ahead/behind and local changes. A clone that would conflict is
 aborted at once and left exactly as it was. It **never** pushes, clones, switches branches or forces anything; it
 skips detached clones, clones without an upstream, and clones already mid-rebase. Public lanes are never cloned by
 it; one already cloned is pulled like any other (it only reads), or left out with `--skip-lanes`.
+
+### `clone-map.sh` — where every clone is, and which ones are spares
+
+```sh
+sh scripts/clone-map.sh                  # one line per repository: path, origin, branch, dirty, ahead, marks
+sh scripts/clone-map.sh --duplicates     # only the rows that share an origin URL with another
+sh scripts/clone-map.sh --json           # the same rows as a JSON array
+sh scripts/clone-map.sh ~/code ~/pir     # your own roots
+```
+
+The map behind [`NESTED-REPOS-GUIDE.md`](../NESTED-REPOS-GUIDE.md) § *The organisation clone is canonical*. It walks
+`~/code`, `~/dappu`, `~/code-forked`, `~/intent`, `~/littlebirds-git-home` and every `~/<org>/` folder above, up to four
+folders deep (Intent keeps a repository at `workspaces/<slug>/<repository>`), and prints each repository's path, origin
+URL, current branch, dirty count and commits ahead of its upstream (0 when it has none). Two rows with the same origin
+(`.git`, a trailing slash, case and the ssh/https spelling ignored) are both marked `DUPLICATE`; the one outside every
+`~/<org>/` folder, when a copy inside one exists, is also `SPARE`, and `NOTED` when a `WHERE-EVERYTHING-WENT.md` sits
+beside it. It is read-only by construction: `GIT_OPTIONAL_LOCKS=0`, so even `git status` writes nothing, and it never
+fetches, pulls, pushes, switches or removes. A spare is information for a person; no helper removes one.
 
 ---
 
@@ -278,6 +297,23 @@ outside `--out` and the page's own icon folder, and it never commits. The rules 
 [`README-STANDARD.md`](../README-STANDARD.md).
 
 ---
+
+## `render-walkthrough-pdfs.sh` — every guide as a PDF beside its markdown
+
+```sh
+sh scripts/render-walkthrough-pdfs.sh --list                 # the guides it would render; draws nothing, installs nothing
+sh scripts/render-walkthrough-pdfs.sh SECURE-TWO-FACTOR      # one guide → walkthroughs/pdf/SECURE-TWO-FACTOR.pdf
+sh scripts/render-walkthrough-pdfs.sh                        # every guide, then drop any PDF whose source is gone
+```
+
+Every `walkthroughs/*.md` (the index `README.md` excepted) becomes `walkthroughs/pdf/<NAME>.pdf`, Letter, brass on slate
+(`proposals-template/TONES.md`; the `TONE_*` variables override per run). `<details>` open for print, GitHub callouts
+become bold labels, and ```` ```mermaid ```` blocks are drawn as SVG first by `sop-template/repo/scripts/mermaid-prerender.sh`
+(`@mermaid-js/mermaid-cli`, pinned); `md-to-pdf@5` does the rest through your installed Chrome. It runs from the
+repository root, so the pages' `../sop-template/repo/assets/icons/` links resolve as they do on GitHub.
+`.github/workflows/walkthroughs-pdf.yml` runs the same script on a push to `main` that touches a walkthrough and commits
+the PDFs as the Actions bot, so nobody needs to render by hand; a Mac short of memory should let it. The markdown stays
+the source: edit the page, never the PDF ([why both](../walkthroughs/MARKDOWN-BESIDE-PDF.md)).
 
 ## `git-safety-backup.sh` — what GitHub lacks, as finished files in iCloud Drive
 
