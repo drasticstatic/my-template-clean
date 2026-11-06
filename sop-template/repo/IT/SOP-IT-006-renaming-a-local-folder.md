@@ -2,10 +2,10 @@
 
 ![SOP](https://img.shields.io/badge/SOP-IT--006-d9a441?style=flat-square)
 ![Status](https://img.shields.io/badge/Status-draft-334155?style=flat-square)
-![Changed](https://img.shields.io/badge/Changed-2026--11--05-8a6a2a?style=flat-square)
+![Changed](https://img.shields.io/badge/Changed-2026--11--06-8a6a2a?style=flat-square)
 ![For](https://img.shields.io/badge/For-Anyone_who_works_with_a_helper_on_their_own_machine-64748b?style=flat-square)
 
-**Department:** IT · **ID:** 006 · **Status:** draft (approved when tagged) · **Owner:** the lab steward · **Last changed:** 2026-11-05
+**Department:** IT · **ID:** 006 · **Status:** draft (approved when tagged) · **Owner:** the lab steward · **Last changed:** 2026-11-06
 
 ## <img src="../assets/icons/compass.svg" width="24" height="24" alt=""> Purpose
 Renaming a folder looks harmless, and to git it is: a clone doesn't care what its folder is called. But other things on your machine are filed by the folder's **full path**, and a rename quietly cuts them off. This page says what they are, and how to move a folder so nothing is stranded. Nothing is deleted by a careless rename. The history just gets hard to find, which on a bad day is nearly the same.
@@ -42,7 +42,7 @@ flowchart LR
 
 1. **Dry run.** `python3 -I my-template/scripts/rename-local-repo.py OLD NEW --ref <folder of scripts to check>`. *You should see:* the Claude project folders it would move, anything it left alone and why, what is working inside the folder now, and which files still name the old path. It changes nothing.
 2. **Close what it names:** Claude sessions in that folder or below, VS Code windows, terminals. A job due to run soon counts: don't rename at 23:50 if a job runs at 23:55.
-3. **Read what it left alone.** A project folder is left alone when its sessions name a different path. That may be a real name collision, or the mark of an earlier move. Look before you vouch for it with `--adopt <name>`.
+3. **Read what it left alone.** A project folder is left alone when its sessions name a different path. That may be a real name collision, or the mark of an earlier move. Look before you vouch for it with `--adopt=<name>` (the `=` form, because the name starts with a dash).
 4. **Apply.** Add `--apply`. It refuses while anything is still inside. *You should see:* "moved", and how many repositories had worktrees repaired.
 5. **Update the paths it named,** and restart any launchd agent whose plist changed (`launchctl unload` then `load`, by hand, once).
 6. **Prove it.** Open the moved project in Claude Code and run `/resume`. *You should see:* the old sessions. Then run `git status` in a worktree, and check the next scheduled job's result in the morning.
@@ -53,6 +53,26 @@ It deletes nothing. It does not edit transcripts, so an old session still record
 ## <img src="../assets/icons/users.svg" width="24" height="24" alt=""> If it already happened
 Nothing is lost. Your old sessions sit in `~/.claude/projects/` under the old flattened name. Move that folder to the new flattened name and `/resume` finds them again.
 
+## <img src="../assets/icons/notebook-pen.svg" width="24" height="24" alt=""> Worked example, Nov 6, 2026
+The lab's own renames, written down so others know how this is done. **Eight folders:** seven labs under `~/code/` were to take a `-lab` suffix (`pir` became `pir-lab`, `the-holy-earth-foundation` became `the-holy-earth-foundation-lab`, and so on), and one organisation folder was to drop its `-org` (`~/taylordwraps-org` became `~/taylordwraps`).
+
+1. **The dry run first, for all eight,** before anything moved. It listed each folder's Claude project entries (a parent and every child inside it), the scripts that still named the old paths, and what was working in each folder right then.
+2. **A VS Code window held one back.** One lab was still open in an editor window, so the apply refused that folder. The other seven went ahead. The eighth waits until its window is closed, then runs on its own; nothing is lost by waiting.
+3. **Parked Terminal tabs.** Several tabs sat idle in folders being renamed, with nothing running in them. `--allow-idle-shells` lets the apply go past a shell that is only sitting there (macOS keeps it working through the move, still showing the old path). A program running in the folder still stops it. Afterwards, `cd` to the new name in such a tab before typing `claude`.
+4. **Two vouches, in the `=` form.** The dry run left two project folders alone because their sessions named another path: the mark of an earlier move, checked by reading their `cwd` fields. Both were vouched for with `--adopt=NAME`. Write the `=`: a project folder's name starts with a dash (`-Users-...`), and after a space the name reads as another option.
+5. **Seven sessions found only in an archive.** Seven old sessions sat only in `~/.claude/projects/_archived-pre-move-sessions/`, filed under paths that had not existed since earlier moves, so `/resume` could list them nowhere. They were **copied, not moved,** into the project folders of their repositories' current homes. The archive stays as it was.
+6. **The nightly job, before its run.** The nightly job named two paths inside a renamed lab. Both were fixed the same day, before its next run, so it never had the chance to fail at night.
+
+## <img src="../assets/icons/notebook-pen.svg" width="24" height="24" alt=""> Worked example two, later on Nov 6, 2026: the labs get a home of their own
+The same morning, a second move, this time out of `~/code` altogether. `~/code` was to keep Christopher's own repositories and the tools; every lab was to live in `~/drasticstaticLabs`. **Ten folders:** the seven labs renamed above, the one the editor window had held back (`taylordwraps` became `taylordwraps-lab` on the way), and three more that took the suffix as they moved (`wilson-lawn-ai-assist`, `RhebekahStar` and `dpnelson`, each now `<name>-lab`). One of the ten is a plain folder holding two spares, not a repository; it moves the same way.
+
+1. **The nightly job first.** The nightly job keeps clones inside one of the labs. Its paths were pointed at `~/drasticstaticLabs/...` and committed before any folder moved, so a run falling between the moves still found its clones. Do this first whenever a scheduled job lives inside what you are moving.
+2. **One dry run per folder, then one apply per folder.** Each old path and its new one. The dry run listed every Claude project entry, the parent and each child; each slug changed from `-Users-<you>-code-<old>` to `-Users-<you>-drasticstaticLabs-<new>`.
+3. **`--allow-idle-shells` again.** Terminal tabs parked in several of the labs, from the first move, still sat there with nothing running. The flag let the apply go past them. In each such tab, `cd ~/drasticstaticLabs/<new>` before typing `claude`, or the session files itself under a path that no longer exists.
+4. **`--adopt=NAME` for what the first move left.** Some project folders the first move had carried still held sessions whose `cwd` named the pre-suffix path (`~/code/pir`, not `~/code/pir-lab`). The tool rightly left them alone; reading their `cwd` fields showed they were this lab's own history, and each was vouched for with `--adopt=-Users-...` (the `=` form).
+5. **The fleet's tools learn the new root.** A move out of every default root drops the folder out of the sweeps without a word: the pull-everything sweep, the clone map, the lane health check, the backup and the document catalog all walk a list of roots. `~/drasticstaticLabs` was added to each list, right after `~/code`, the same day. Then `clone-map.sh` was run to see the ten under their new home.
+6. **The living pages, not the history.** Guides, walkthroughs, READMEs and SOP bodies that named the old paths were updated; dated handoffs, session logs and change-log rows were left saying what was true on their day. A dated page that a session reads next as its "start here" got one line at its top giving the new path.
+
 ## <img src="../assets/icons/book-open.svg" width="24" height="24" alt=""> Related
 `my-template/NESTED-REPOS-GUIDE.md` (where clones live), SOP-OPS-003 (the lanes), `scripts/clone-map.sh` (where everything is now). *Read Nov 5, 2026 from the machine itself; Claude Code may change how it files projects, so re-check `~/.claude/projects/` if this page ever seems wrong.*
 
@@ -60,3 +80,5 @@ Nothing is lost. Your old sessions sit in `~/.claude/projects/` under the old fl
 | Date | Change |
 |---|---|
 | 2026-11-05 | Drafted before the lab's own renames, from a heads-up about orphaned sessions. |
+| 2026-11-06 | A worked example from the lab's renames that day; `--adopt=` written with its `=`. |
+| 2026-11-06 | Worked example two: the ten labs moved from `~/code` to `~/drasticstaticLabs`; the nightly job repointed first, `--allow-idle-shells` and `--adopt=` again, the fleet scripts given the new root. |
