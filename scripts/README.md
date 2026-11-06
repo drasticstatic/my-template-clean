@@ -368,6 +368,38 @@ counted. It refuses to run until a skip list exists, so a new Mac cannot send a 
 misses a sleeping Mac. Why it works this way, the restore steps and its limits:
 [`walkthroughs/ICLOUD-AND-GITHUB-TOGETHER.md`](../walkthroughs/ICLOUD-AND-GITHUB-TOGETHER.md).
 
+## `claude-projects-manifest.py` and `claude-session-start.sh` — order in `~/.claude/projects`
+
+```sh
+python3 -I scripts/claude-projects-manifest.py           # writes ~/.claude/projects/MANIFEST-LOG.md
+python3 -I scripts/claude-projects-manifest.py --check   # exit 1 on an orphan, or an old-path folder Moves does not list
+sh scripts/claude-projects-manifest.selftest.sh          # the manifest, the hook and the zsh guard, in a fake home
+```
+
+Claude Code files a session under the folder it started in, flattened. The manifest gives one row per project folder:
+its real folder (from the recorded `cwd`), whether that exists, sessions, memory files, and a status (live, moved-here,
+memory-only, orphan, archived). It reads only `cwd` and timestamps from the first lines of each session file, never
+prints what was said, and never edits or moves one. Its Moves section is kept between runs, and
+`rename-local-repo.py --apply` now adds a line there itself. `claude-session-start.sh` is a SessionStart hook (log one
+row per start; tell the agent to ask when a session starts in a parent folder) with a zsh `claude` guard and the
+settings block in its header. Neither is installed by default: [`walkthroughs/CLAUDE-SESSION-ORDER.md`](../walkthroughs/CLAUDE-SESSION-ORDER.md).
+
+## `nest-manifest.py` — one MANIFEST.md per parent folder
+
+```sh
+python3 -I scripts/nest-manifest.py ~/dappu            # writes ~/dappu/MANIFEST.md
+python3 -I scripts/nest-manifest.py ~/dappu --check    # exit 1 when the workspace file or the .gitignore has fallen behind
+sh scripts/nest-manifest.selftest.sh                   # fake nests in a temporary folder; no gh calls
+```
+
+A nest is a folder of repositories: a parent repository that gitignores its children, or a plain folder (an
+organisation's) that only holds them. One row per child: origin, visibility (one `gh repo list` per owner, cached for a
+week; offline it shows `?`), branch, ahead / behind its upstream as of the last fetch, last commit, whether the nest's
+`.code-workspace` lists it, and whether the parent's `.gitignore` ignores it. Repositories one level deeper are indented.
+Read-only on every child (`git -C` reads with optional locks off). The table sits between markers, so the intro and the
+line `Outside the workspace on purpose:` are yours to edit. Children named in `~/.claude/projects/MANIFEST-PRIVATE.txt`
+are counted, never opened and never named. Never put a MANIFEST.md in a public repository: it names private ones.
+
 ## `scan-public-lane.sh` — the public-lane tripwire (master copy)
 
 ```sh
@@ -384,6 +416,10 @@ names; an SVG that can run something; base64 embedding a script, HTML, a PDF or 
 `entity/ tax/ filings/ counsel/`. A person who opened a file can clear the attestable cases with one line in
 `PUBLIC-ALLOWLIST-ATTESTED.txt` (`path | officer | YYYY-MM-DD | opened and read`, optionally `| sha256:<hex>`); the
 credential, legal-lane and never-travels refusals cannot be attested away. Matched text is never printed.
+The officer field names whoever actually read the file, never a person who did not: in a repository Christopher
+owns that may be an agent by its attribution name (`Alfred · ClaudeCodeCLI · Anthropic [Opus-5.5]`); in an
+organisation's repository a person with the role attests unless its officers delegate it in writing (their
+`CLAUDE.md`), and a helper prepares the lines and hands them over.
 
 `PUBLIC-LANE-MEDIA.txt` lists folders whose pictures and fonts the lane publishes on purpose, each under
 `approved by <name> | YYYY-MM-DD`. A person chose these folders; a machine still reads what it can: bytes must match the
