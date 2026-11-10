@@ -418,6 +418,25 @@ Read-only on every child (`git -C` reads with optional locks off). The table sit
 line `Outside the workspace on purpose:` are yours to edit. Children named in `~/.claude/projects/MANIFEST-PRIVATE.txt`
 are counted, never opened and never named. Never put a MANIFEST.md in a public repository: it names private ones.
 
+## `set-merge-methods.sh` — merge commits only, on every repository
+
+```sh
+sh scripts/set-merge-methods.sh --audit <owner> [<owner>...]       # read-only; exit 1 if any repository drifted
+sh scripts/set-merge-methods.sh --fix <owner>/<repo> [...]         # squash off, rebase off, merge commit on
+sh scripts/set-merge-methods.selftest.sh                           # offline, against a stub gh
+```
+
+The fleet merges with a merge commit, never a squash, so every commit's author and session trailer survive (SOP-OPS-002).
+Rebase-merge drops the merge commit too, so it is off as well. GitHub has no organisation-wide default: every new
+repository starts with all three methods on, so run `--fix` once on each new one. `--audit` lists every non-archived
+repository of each owner with its three settings and a state (`ok`, `DRIFT`, `exception`, `unreadable`). `--fix`
+touches only the repositories named on its command line. Repositories listed in `merge-methods-exceptions.txt` (or the
+file named by `$MERGE_EXCEPTIONS`) are reported and never changed; keep a reason beside each line. The stronger option,
+a ruleset whose pull-request rule sets `allowed_merge_methods` to `["merge"]`, is described in SOP-OPS-002; GitHub
+offers rulesets on public repositories on every plan, on private ones only from GitHub Team, and organisation-level
+rulesets only on Enterprise. The current table across Christopher's organisations lives in the private
+`mystarch_chief-of-staff` repository (`specs/MERGE-METHODS-LEGEND.md`).
+
 ## `scan-public-lane.sh` — the public-lane tripwire (master copy)
 
 ```sh
@@ -460,6 +479,24 @@ committed) and checks that `sop-template/repo/scripts/` holds byte-identical cop
 that model publishes history), `workflow-templates/sync-public-excludelist.yml` and
 `workflow-templates/publish-masked-public-copy.yml`. Copy it, do not fork it. Every copy in the fleet, with the commit
 that added it and what a rehearsal found: [`sop-template/TRIPWIRE-COPIES.md`](../sop-template/TRIPWIRE-COPIES.md).
+
+### `keep-scratch.sh` — keep scratch work through a restart, on the right road
+
+A session's own scratchpad lives in a temporary folder that a restart empties. Work that has to wait for a
+person (a list of `!` commands, a backup before a risky move, a draft) goes through this script instead:
+
+```sh
+sh scripts/keep-scratch.sh save SRC REPO TOPIC "what it is waiting on"   # copies, never overwrites
+sh scripts/keep-scratch.sh status [--hook]                                # what is still open, both places
+sh scripts/keep-scratch.sh done FOLDER                                    # moves it to done/YYYY/MM/
+```
+
+`save` picks one of two places. Anything whose file names look like secrets (`.env`, keys, passphrases,
+credentials, wallets), anything over 1 GB, or anything saved with `--local` goes to a local folder that never
+syncs and that Time Machine backs up. Everything else goes to a synced cloud folder, so it follows you to
+other devices. Both locations are set by `KEEP_SCRATCH_LOCAL` and `KEEP_SCRATCH_SYNCED`, and the user-level
+instructions name the real ones. Nothing is deleted. Run `status --hook` from a session-start hook and every
+new session sees what is still waiting; it prints nothing when both places are empty.
 
 ### `check-tripwire-copies.sh` — which copies have drifted from the master
 
