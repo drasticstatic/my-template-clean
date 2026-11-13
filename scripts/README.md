@@ -133,6 +133,12 @@ choice is not cosmetic:
 Visibility is detected via `gh`, then an anonymous API call, then a naming heuristic — in that order,
 so it still works without a GitHub token. Pass `--private` or `--public` to skip detection.
 
+The lanes it creates inside that folder: `created-by-` `alfred`, `auggie`, `christopher`, `fortuna`,
+`kavanah`, `mystarch`, `Littlebird`, `cosmos` and `Gemini` (Nov 12, 2026: the two retired per-environment
+Cosmos lanes are no longer created). `created-by-1alfred` and a collaborator's `created-by-<first name>` are
+made by hand where they belong. `agent-sync-health.py` accepts all of these, and flags any other
+`created-by-<name>` until it has a `README.md` saying whose it is ([`AGENT-SYNC/README.md`](../AGENT-SYNC/README.md)).
+
 ### The trap this script exists to prevent
 
 Getting it wrong is silent. Committing `AGENT-SYNC/` to a public repo does not error; it publishes
@@ -197,6 +203,23 @@ edit it) into each target. If the target already has the markers, it replaces th
 the heading without markers, it replaces that section. Otherwise it inserts the block before
 `## Commit Convention`, or appends it at the end. Headings inside code fences are ignored, and a file
 with a start marker but no end marker is skipped and reported.
+
+---
+
+## `lay-tutorials-shelf.sh` — a tutorials shelf beside every SOP location and reading room
+
+```sh
+sh scripts/lay-tutorials-shelf.sh --scan ~/<org> --scan ~/drasticstaticLabs     # dry run
+sh scripts/lay-tutorials-shelf.sh --apply --list ~/private/shelf-repos.txt
+sh scripts/test-lay-tutorials-shelf.sh                                           # self-test, on a made-up fleet
+```
+
+The third fleet sweep, in the same shape as the two above: a dry run unless `--apply`, idempotent, never commits,
+no repository list inside. It finds **SOP locations** (a git repository named `ops-standard-operating-procedures` or
+`ops-standard-operating-procedures-<desk>`) and **reading rooms** (one named `reading-room`), skips every name ending
+in `-public` (a twin receives files only from its sync), and lays a `tutorials/README.md` that points to
+[`../tutorials/README.md`](../tutorials/README.md) with an empty table for the repository's own tutorials. An existing
+`tutorials/README.md`, in any case, is never overwritten.
 
 ---
 
@@ -387,16 +410,22 @@ settings block in its header. Neither is installed by default: [`walkthroughs/CL
 ## `claude-projects-archive.sh` — a nightly sealed copy of `~/.claude/projects`
 
 ```sh
-sh scripts/claude-projects-archive.selftest.sh                 # a fake home in a temporary folder; 104 checks
+sh scripts/claude-projects-archive.selftest.sh                 # a fake home in a temporary folder; 297 checks
 sh scripts/claude-projects-archive.sh --init                   # once, by you: the passphrase file (never shown)
 sh scripts/claude-projects-archive.sh --run                    # full on the first run of a month, else what changed
 sh scripts/claude-projects-archive.sh --list                   # archives, sizes, total
 sh scripts/claude-projects-archive.sh --restore-latest ~/claude-restore   # into a new, empty folder
 sh scripts/claude-projects-archive.sh --install                # by you: a LaunchAgent at 00:40 nightly (--if-due)
+sh scripts/claude-projects-archive.sh --run --source ~/Notes --name notes # another folder, its own chain
 ```
 
-`tar`, `gzip` and `openssl enc -aes-256-cbc -pbkdf2 -iter 600000` over `~/.claude/projects` and `~/.claude/CLAUDE.md`, into
-`iCloud Drive/Backups/claude-projects/YYYY/` or any existing folder given with `--dest`. Each archive is written as `.partial`,
+`tar`, `gzip` and `openssl enc -aes-256-cbc -pbkdf2 -iter 600000` over `~/.claude/projects`, and `~/.claude/CLAUDE.md`,
+`history.jsonl` (your typed prompts, kept after their transcripts are swept), `plans/` and `file-history/` when they
+exist, into `iCloud Drive/Backups/claude-projects/YYYY/` or any existing folder given with `--dest`. A chain begun before
+those three were added carries on: the next incremental picks them up. `--source DIR --name NAME` seals another folder
+the same way, with every mode but `--install`/`--uninstall`: archives named `NAME_…_full.tar.gz.enc` under
+`<dest>/NAME/YYYY/`, paths relative to DIR's parent, and a state folder of its own, so it never shares a stamp with the
+Claude chain. It refuses a NAME other than letters, digits, `-` and `_`, and a DIR inside `~/.claude` or overlapping the destination. Each archive is written as `.partial`,
 decrypted again and counted, given a `.sha256`, then renamed; the stamp for the next incremental moves only after that. It
 refuses a destination inside `~/.claude`, a passphrase file that is missing or not mode 600, and a restore into anything but
 a new, empty folder outside `~/.claude`. It deletes no archive (`--prune-plan` only prints a plan). Setup lines, restore
@@ -417,6 +446,19 @@ week; offline it shows `?`), branch, ahead / behind its upstream as of the last 
 Read-only on every child (`git -C` reads with optional locks off). The table sits between markers, so the intro and the
 line `Outside the workspace on purpose:` are yours to edit. Children named in `~/.claude/projects/MANIFEST-PRIVATE.txt`
 are counted, never opened and never named. Never put a MANIFEST.md in a public repository: it names private ones.
+
+## `fork-staleness.sh` — how far each fork's pin sits behind its upstream
+
+```sh
+sh scripts/fork-staleness.sh [--fetch] [--tsv] [<folder>]   # default ~/code-forked; read-only, no network by default
+sh scripts/fork-staleness.selftest.sh                       # throwaway repositories in a temporary folder
+```
+
+For each repository directly under the folder: its pinned revision (HEAD and the nearest tag), its `upstream` remote,
+and how many commits HEAD is behind and ahead of the locally known `upstream/<default branch>`, from what was last
+fetched. `--fetch` runs `git fetch upstream --tags` first; that is its only network call and it never runs by default.
+It never merges, checks out or changes a branch. A fork moves only after review (`code-forked/audits/`); this only says
+how far behind the pin is.
 
 ## `set-merge-methods.sh` — merge commits only, on every repository
 
