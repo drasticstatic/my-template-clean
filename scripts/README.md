@@ -276,6 +276,22 @@ URL, current branch, dirty count and commits ahead of its upstream (0 when it ha
 beside it. It is read-only by construction: `GIT_OPTIONAL_LOCKS=0`, so even `git status` writes nothing, and it never
 fetches, pulls, pushes, switches or removes. A spare is information for a person; no helper removes one.
 
+### `open-loops.py` — every open task in the fleet, on one page
+
+```sh
+python3 -I scripts/open-loops.py --out ~/private/OPEN-LOOPS.md              # walks clone-map.sh --json itself
+sh scripts/clone-map.sh --json | python3 -I scripts/open-loops.py --clone-map - --out PAGE --extra ~/another-folder
+python3 -I scripts/open-loops.py --out PAGE --counts-only 'legal|tax'       # those repositories show a count only
+sh scripts/test-open-loops.sh
+```
+
+Reads the first of `PENDING-TASKS.md` / `pending-tasks.md` / `PENDING_TASKS.md` in every repository clone-map finds
+and lists each top-level open item (`- [ ]`) with its date and its owner, where the item writes one as
+`**Owner: X**`, `**X (prep)**` or a closing `(Christopher)`; nothing is guessed. Sections: named for Christopher,
+named for someone else, one row per repository. The page links to local files, so it belongs in a private place.
+Read-only on the repositories, idempotent, no network. A personal vault runs it on every refresh through a small
+wrapper of its own.
+
 ---
 
 ## `shrink-images.sh` — pictures small enough to commit and publish
@@ -410,19 +426,24 @@ settings block in its header. Neither is installed by default: [`walkthroughs/CL
 ## `claude-projects-archive.sh` — a nightly sealed copy of `~/.claude/projects`
 
 ```sh
-sh scripts/claude-projects-archive.selftest.sh                 # a fake home in a temporary folder; 298 checks
+sh scripts/claude-projects-archive.selftest.sh                 # a fake home in a temporary folder; 346 checks
 sh scripts/claude-projects-archive.sh --init                   # once, by you: the passphrase file (never shown)
 sh scripts/claude-projects-archive.sh --run                    # full on the first run of a month, else what changed
 sh scripts/claude-projects-archive.sh --list                   # archives, sizes, total
 sh scripts/claude-projects-archive.sh --restore-latest ~/claude-restore   # into a new, empty folder
 sh scripts/claude-projects-archive.sh --install                # by you: a LaunchAgent at 00:40 nightly (--if-due)
 sh scripts/claude-projects-archive.sh --run --source ~/Notes --name notes # another folder, its own chain
+sh scripts/claude-projects-archive.sh --run --source ~/Notes --name notes --exclude private   # less a part of it
 ```
 
 `tar`, `gzip` and `openssl enc -aes-256-cbc -pbkdf2 -iter 600000` over `~/.claude/projects`, and `~/.claude/CLAUDE.md`,
 `history.jsonl` (your typed prompts, kept after their transcripts are swept), `plans/` and `file-history/` when they
-exist, into `iCloud Drive/Backups/claude-projects/YYYY/` or any existing folder given with `--dest`. A chain begun before
-those three were added carries on: the next incremental picks them up. `--source DIR --name NAME` seals another folder
+exist, and every project's `.claude/settings.local.json` under your home (git ignores them; found afresh each run, six
+levels deep at most, skipping Library, the Trash, the folders macOS guards, archive and restore folders, `node_modules`
+and `.git`; only the count is printed), into `iCloud Drive/Backups/claude-projects/YYYY/` or any existing folder given
+with `--dest`. A chain begun before any of these were added carries on: the next incremental picks them up.
+`--exclude REL` (repeatable, `--source` only) leaves `DIR/REL` out; the chain remembers its excludes and refuses a run
+that gives others. `--source DIR --name NAME` seals another folder
 the same way, with every mode but `--install`/`--uninstall`: archives named `NAME_…_full.tar.gz.enc` under
 `<dest>/NAME/YYYY/`, paths relative to DIR's parent, and a state folder of its own, so it never shares a stamp with the
 Claude chain. It refuses a NAME other than letters, digits, `-` and `_`, and a DIR inside `~/.claude` or overlapping the destination. Each archive is written as `.partial`,
@@ -548,6 +569,7 @@ person (a list of `!` commands, a backup before a risky move, a draft) goes thro
 sh scripts/keep-scratch.sh save SRC REPO TOPIC "what it is waiting on"   # copies, never overwrites
 sh scripts/keep-scratch.sh status [--hook]                                # what is still open, both places
 sh scripts/keep-scratch.sh done FOLDER                                    # moves it to done/YYYY/MM/
+sh scripts/keep-scratch.selftest.sh                                       # a fake home in a temporary folder; 32 checks
 ```
 
 `save` picks one of two places. Anything whose file names look like secrets (`.env`, keys, passphrases,
